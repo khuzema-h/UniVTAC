@@ -20,6 +20,51 @@ from act_policy import ACTPolicy, CNNMLPPolicy
 import IPython
 e = IPython.embed
 
+try:
+    import wandb  # type: ignore
+except Exception:
+    wandb = None
+
+
+def _wandb_enabled(config: dict) -> bool:
+    """
+    Enable W&B logging only when explicitly configured to avoid
+    breaking training in environments without W&B credentials.
+    """
+    if wandb is None:
+        return False
+    if os.environ.get("WANDB_DISABLED", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    wandb_project = config.get("wandb_project")
+    return bool(wandb_project)
+
+
+def _init_wandb(config: dict) -> "object | None":
+    if not _wandb_enabled(config):
+        return None
+
+    wandb_project = config.get("wandb_project") or "UniVTAC"
+    wandb_entity = config.get("wandb_entity")
+    wandb_mode = config.get("wandb_mode") or "online"
+    wandb_run_name = config.get("wandb_run_name")
+
+    try:
+        init_kwargs = {
+            "project": wandb_project,
+            "config": config,
+        }
+        if wandb_entity:
+            init_kwargs["entity"] = wandb_entity
+        if wandb_mode:
+            init_kwargs["mode"] = wandb_mode
+        if wandb_run_name:
+            init_kwargs["name"] = wandb_run_name
+
+        return wandb.init(**init_kwargs)  # type: ignore[union-attr]
+    except Exception as exc:
+        print(f"[W&B] Failed to initialize W&B; continuing without it. Error: {exc}")
+        return None
+
 
 def main(args):
     set_seed(1)
@@ -80,7 +125,16 @@ def main(args):
         "real_robot": not is_sim,
         "save_freq": args['save_freq'],
         "num_steps": args['num_steps'],
+        # W&B (optional)
+        "wandb_project": args.get("wandb_project"),
+        "wandb_entity": args.get("wandb_entity"),
+        "wandb_mode": args.get("wandb_mode"),
+        "wandb_run_name": args.get("wandb_run_name"),
+        "wandb_log_ckpts": bool(args.get("wandb_log_ckpts", False)),
     }
+
+    # Initialize W&B after the main training config exists.
+    wandb_run = _init_wandb(config)
 
     if is_eval:
         print("=" * 60)
@@ -109,6 +163,18 @@ def main(args):
     ckpt_path = os.path.join(ckpt_dir, f"policy_best.ckpt")
     torch.save(best_state_dict, ckpt_path)
     print(f"Best ckpt, val loss {min_val_loss:.6f} @ epoch{best_epoch}")
+
+    # Log best checkpoint to W&B as a versioned artifact.
+    if wandb_run is not None and config.get("wandb_log_ckpts", False):
+        try:
+            artifact = wandb.Artifact(f"{config['task_name']}_policy_best", type="model")
+            artifact.add_file(ckpt_path)
+            wandb_run.log_artifact(artifact, aliases=["best"])
+        except Exception as exc:
+            print(f"[W&B] Failed to log best checkpoint artifact. Error: {exc}")
+
+    if wandb_run is not None:
+        wandb_run.finish()
 
 
 def make_policy(policy_class, policy_config):
@@ -189,6 +255,33 @@ def train_bc(train_dataloader, val_dataloader, config):
                 torch.save(policy.state_dict(), ckpt_path)
                 plot_history(train_history, validation_history, epoch, ckpt_dir, seed)
 
+                # Optional: upload intermediate checkpoints.
+                if wandb is not None and wandb.run is not None and config.get("wandb_log_ckpts", False):
+                    try:
+                        artifact = wandb.Artifact(
+                            f"{config['task_name']}_policy_epoch_{epoch + 1}",
+                            type="model",
+                        )
+                        artifact.add_file(ckpt_path)
+                        wandb.run.log_artifact(artifact)
+                    except Exception as exc:
+                        print(f"[W&B] Failed to log intermediate checkpoint artifact. Error: {exc}")
+
+            # Log train losses per step (cheap scalar logging).
+            if wandb is not None and wandb.run is not None:
+                try:
+                    def _scalar(x):
+                        # forward_dict values are typically 0-d tensors
+                        return float(x.item()) if hasattr(x, "item") else float(x)
+
+                    to_log = {f"train/{k}": _scalar(v) for k, v in forward_dict.items() if k != "loss"}
+                    to_log["train/loss"] = _scalar(forward_dict["loss"])
+                    to_log["train/epoch"] = float(epoch)
+                    to_log["train/step"] = float(step_count)
+                    wandb.log(to_log, step=step_count)
+                except Exception:
+                    pass
+
         epoch_summary = compute_dict_mean(train_history[(batch_idx + 1) * epoch:(batch_idx + 1) * (epoch + 1)])
         epoch_train_loss = epoch_summary["loss"]
 
@@ -211,6 +304,16 @@ def train_bc(train_dataloader, val_dataloader, config):
                 min_val_loss = epoch_val_loss
                 best_ckpt_info = (epoch, min_val_loss, deepcopy(policy.state_dict()))
 
+            # Log validation losses per epoch.
+            if wandb is not None and wandb.run is not None:
+                try:
+                    val_to_log = {f"val/{k}": float(v.item() if hasattr(v, "item") else v) for k, v in epoch_summary.items()}
+                    val_to_log["val/epoch"] = float(epoch)
+                    val_to_log["val/best"] = bool(epoch_val_loss == min_val_loss)
+                    wandb.log(val_to_log, step=step_count)
+                except Exception:
+                    pass
+
         eval_summary_string = ""
         for k, v in epoch_summary.items():
             eval_summary_string += f"{k}: {v.item():.3f} "
@@ -221,6 +324,15 @@ def train_bc(train_dataloader, val_dataloader, config):
 
     ckpt_path = os.path.join(ckpt_dir, f"policy_last.ckpt")
     torch.save(policy.state_dict(), ckpt_path)
+
+    # Optional: upload last checkpoint as artifact.
+    if wandb is not None and wandb.run is not None and config.get("wandb_log_ckpts", False):
+        try:
+            artifact = wandb.Artifact(f"{config['task_name']}_policy_last", type="model")
+            artifact.add_file(ckpt_path)
+            wandb.run.log_artifact(artifact, aliases=["last"])
+        except Exception as exc:
+            print(f"[W&B] Failed to log last checkpoint artifact. Error: {exc}")
 
     best_epoch, min_val_loss, best_state_dict = best_ckpt_info
     ckpt_path = os.path.join(ckpt_dir, f"policy_epoch_{best_epoch}_seed_{seed}.ckpt")
@@ -275,6 +387,16 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, required=False)
     parser.add_argument("--num_steps", type=int, required=False)
     parser.add_argument("--save_freq", type=int, required=False)
+
+    # W&B defaults (can be disabled by setting WANDB_DISABLED=1).
+    parser.add_argument("--wandb_project", type=str, required=False, default="UniVTAC")
+    parser.add_argument("--wandb_entity", type=str, required=False, default=None)
+    parser.add_argument("--wandb_mode", type=str, required=False, default="online")
+    parser.add_argument("--wandb_run_name", type=str, required=False, default=None)
+    ckpt_group = parser.add_mutually_exclusive_group()
+    ckpt_group.add_argument("--wandb_log_ckpts", dest="wandb_log_ckpts", action="store_true")
+    ckpt_group.add_argument("--no_wandb_log_ckpts", dest="wandb_log_ckpts", action="store_false")
+    parser.set_defaults(wandb_log_ckpts=True)
 
 
     args = parser.parse_args()
