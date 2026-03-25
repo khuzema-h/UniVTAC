@@ -19,9 +19,15 @@ class Policy(BasePolicy):
     def __init__(self, args):
         """Initialize ACT policy for TacArena deployment"""
         # Construct checkpoint directory path
-        self.train_config_name = os.environ.get('TRAIN_CONFIG', 'train_config')
-        self.ep_num = os.environ.get('EP_NUM', '50')
-        ckpt_dir = Path(__file__).parent / "act_ckpt" / f"act-{args['task_name']}" / f"{args['task_config']}-{self.ep_num}" / self.train_config_name
+        self.train_config_name = args.get('train_config_name', os.environ.get('TRAIN_CONFIG', 'train_config'))
+        self.ep_num = args.get('ep_num', os.environ.get('EP_NUM', '100'))
+        
+        # Prioritize ckpt_dir from args (from YAML) if provided
+        if 'ckpt_dir' in args:
+            ckpt_dir = Path(args['ckpt_dir'])
+        else:
+            ckpt_dir = Path(__file__).parent / "act_ckpt" / f"act-{args['task_name']}" / f"{args['task_config']}-{self.ep_num}" / self.train_config_name
+
  
         self.task_name = args['task_name']
         with open(Path(__file__).parent.parent / 'task_settings.json', 'r') as f:
@@ -84,8 +90,8 @@ class Policy(BasePolicy):
         else:
             cam_high = camera_transform(observation["observation"][self.camera_type]["rgb"])
 
-        left_tac = tactile_transform(observation["tactile"]["left_gsmini"]["rgb_marker"])
-        right_tac = tactile_transform(observation["tactile"]["right_gsmini"]["rgb_marker"])
+        left_tac = tactile_transform(observation["tactile"]["left_tactile"]["rgb_marker"])
+        right_tac = tactile_transform(observation["tactile"]["right_tactile"]["rgb_marker"])
         
         # Extract joint positions (8D: 7 arm + 1 gripper)
         qpos = observation["embodiment"]["joint"][:8]
@@ -111,8 +117,8 @@ class Policy(BasePolicy):
         
         # Get action from ACT model (returns (1, 8) numpy array)
         obs = self.encode_obs(observation)
-        if self.model.t % 10 == 0:
-            self.save(task.get_frame_shot(observation), task.take_action_cnt)
+        if task.take_action_cnt % 10 == 0:
+            self.save(observation, task.take_action_cnt)
         action = self.model.get_action(obs).reshape(-1)
         action = torch.from_numpy(action).to(task.device).float()
         exec_succ, eval_succ = task.take_action(action, action_type='qpos')
@@ -122,14 +128,22 @@ class Policy(BasePolicy):
         if hasattr(self.model, 'reset'):
             self.model.reset()
 
-    def save(self, img, t):
+    def save(self, observation, t):
         from PIL import Image
-        from PIL import ImageDraw, ImageFont
         
-        obs = Image.fromarray(img.cpu().numpy())
+        # Create output directory
+        save_dir = Path(f"eval_frames/{self.task_name}")
+        save_dir.mkdir(parents=True, exist_ok=True)
 
-        draw = ImageDraw.Draw(obs)
-        font = ImageFont.load_default()
+        # Map observational frames to save
+        frames = {
+            'head': observation["observation"]["head"]["rgb"],
+            'wrist': observation["observation"]["wrist"]["rgb"],
+            'tactile_left': observation["tactile"]["left_tactile"]["rgb_marker"],
+            'tactile_right': observation["tactile"]["right_tactile"]["rgb_marker"]
+        }
 
-        draw.text((obs.width-100, obs.height-60), f'{t:03d}', fill=(255, 0, 0), font=font)
-        obs.save(f'ACT_{self.task_name}_{self.train_config_name}.png')
+        for name, tensor in frames.items():
+            img = Image.fromarray(tensor.cpu().numpy().astype('uint8'))
+            img.save(save_dir / f"step_{t:04d}_{name}.png")
+

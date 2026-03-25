@@ -39,7 +39,7 @@ def load_hdf5(dataset_paths, camera_type, downsample_factor):
         downsample_factor=downsample_factor,
     )
  
-    return data
+    return data, data_paths
 
 
 def data_transform(path, episode_num, save_path):
@@ -67,7 +67,7 @@ def data_transform(path, episode_num, save_path):
 
     # 批量加载所有 episode
     dataset_paths = [str(hdf5_files[i]) for i in range(episode_num)]
-    data = load_hdf5(dataset_paths[:episode_num], camera_type, downsample_factor)
+    data, data_paths = load_hdf5(dataset_paths[:episode_num], camera_type, downsample_factor)
     
     # 提取批量数据
     joint_state_all = data['embodiment/joint_state'][:, 0:8]  # (T_total, 8)
@@ -77,8 +77,12 @@ def data_transform(path, episode_num, save_path):
         wrist_cam_all = data[f'observation/wrist/rgb']  # (T_total, H, W, 3)
     else:
         head_cam_all = data[f'observation/{camera_type}/rgb']  # (T_total, H, W, 3)
-    left_tac_all = data['tactile/left_tactile/rgb_marker']  # (T_total, H, W, 3)
-    right_tac_all = data['tactile/right_tactile/rgb_marker']  # (T_total, H, W, 3)
+    
+    # Use the detected tactile paths from load_hdf5
+    left_tac_key = next(p for p in data_paths if 'left' in p and 'rgb_marker' in p)
+    right_tac_key = next(p for p in data_paths if 'right' in p and 'rgb_marker' in p)
+    left_tac_all = data[left_tac_key]
+    right_tac_all = data[right_tac_key]
     episode_ends = data['episode_ends']
     
     start_idx = 0

@@ -277,9 +277,11 @@ class VideoHandler:
         self.video_path.unlink(missing_ok=True)
  
     def close(self, result:str=None):
-        self.ffmpeg.stdin.close()
-        self.ffmpeg.wait()
-        del self.ffmpeg
+        if self.ffmpeg is not None:
+            self.ffmpeg.stdin.close()
+            self.ffmpeg.wait()
+            del self.ffmpeg
+            self.ffmpeg = None
 
         # self.stream.stdin.close()
         # self.stream.wait()

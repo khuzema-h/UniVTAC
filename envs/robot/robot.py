@@ -127,7 +127,7 @@ class RobotManager:
     def get_gripper_percentage(self):
         return self.get_gripper_qpos().item() / self.gripper_max_qpos
 
-    def set_arm(self, pos:torch.Tensor, vel:torch.Tensor=None, env_ids:slice=None, force:bool=True):
+    def set_arm(self, pos:torch.Tensor, vel:torch.Tensor=None, env_ids:slice=None, force:bool=False):
         '''设置目标位姿'''
         self.robot.set_joint_position_target(pos, joint_ids=self._arm_ids, env_ids=env_ids)
         if vel is not None:
@@ -138,7 +138,7 @@ class RobotManager:
                 self.robot._ALL_INDICES
             )
 
-    def set_gripper(self, pos:torch.Tensor, vel:torch.Tensor=None, env_ids:slice=None, force:bool=True):
+    def set_gripper(self, pos:torch.Tensor, vel:torch.Tensor=None, env_ids:slice=None, force:bool=False):
         '''设置目标位姿'''
         self.robot.set_joint_position_target(pos, joint_ids=self._gripper_ids, env_ids=env_ids)
         if vel is not None:

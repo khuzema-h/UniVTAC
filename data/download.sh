@@ -6,4 +6,5 @@ then
     pip install modelscope
 fi
 
-modelscope download --dataset byml2024/UniVTAC
+# modelscope download --dataset byml2024/UniVTAC  
+modelscope download --dataset byml2024/UniVTAC --include "insert_HDMI/**"

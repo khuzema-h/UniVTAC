@@ -267,8 +267,23 @@ if __name__ == "__main__":
     parser.add_argument("--config_path", action="store", type=str, help="config_path", required=True)
     parser.add_argument("--seed", action="store", type=int, help="seed", required=True)
 
+    # Make training parameters optional so they can be loaded from YAML
+    parser.add_argument("--policy_class", type=str, required=False)
+    parser.add_argument("--num_epochs", type=int, required=False)
+    parser.add_argument("--state_dim", type=int, required=False)
+    parser.add_argument("--lr", type=float, required=False)
+    parser.add_argument("--batch_size", type=int, required=False)
+    parser.add_argument("--num_steps", type=int, required=False)
+    parser.add_argument("--save_freq", type=int, required=False)
+
+
     args = parser.parse_args()
     with open(args.config_path, 'r') as f:
         config_args = yaml.load(f, Loader=yaml.FullLoader)
-    config_args.update(vars(args))
+    
+    # Merge CLI args into YAML config, but only if they were actually provided
+    for k, v in vars(args).items():
+        if v is not None:
+            config_args[k] = v
+    
     main(config_args)

@@ -815,7 +815,7 @@ class BaseTask(UipcRLEnv):
     def check_early_stop(self):
         return False
 
-    def take_action(self, action:torch.Tensor, action_type:Literal['qpos', 'ee', 'delta_ee']='qpos', force:bool=True):
+    def take_action(self, action:torch.Tensor, action_type:Literal['qpos', 'ee', 'delta_ee']='qpos', force:bool=False):
         '''
             qpos     : actions is Tensor([8]), qpos (7 DOFS + gripper)
             ee       : actions is Tensor([7]), position (3), orientation (4)

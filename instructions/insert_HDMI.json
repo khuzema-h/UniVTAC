@@ -1,0 +1,11 @@
+{
+    "seen": [
+        "Insert the HDMI connector into the port.",
+        "Grasp the HDMI cable and plug it into the socket.",
+        "Align the HDMI plug with the port and push it in."
+    ],
+    "unseen": [
+        "Plug the HDMI into the slot.",
+        "Connect the HDMI cable."
+    ]
+}
