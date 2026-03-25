@@ -45,6 +45,38 @@ Each policy is a self-contained module under `policy/` with its own data process
 bash eval_policy.sh ${task_name} ${task_config} ${policy_config} ${gpu_id}
 ```
 
+### Quick Start: Training & Evaluating ACT
+If you want to train and evaluate the ACT policy on a task like `insert_HDMI`:
+
+1.  **Download & Link data**: 
+    ```bash
+    # Download specific task dataset
+    bash data/download.sh "insert_HDMI/**"
+    # Link the downloaded HDF5 files to the training directory
+    ln -s ~/.cache/modelscope/hub/datasets/byml2024/UniVTAC/master/insert_HDMI/demo/*.hdf5 data/insert_HDMI/demo/
+    ```
+
+2.  **Process Data**:
+    ```bash
+    cd policy/ACT
+    # Usage: bash process_data.sh <task> <config> <num_episodes>
+    bash process_data.sh insert_HDMI demo 100
+    ```
+
+3.  **Train**:
+    ```bash
+    # Usage: bash train.sh <task> <config> <num_episodes> <seed> <gpu_id>
+    bash train.sh insert_HDMI demo 100 0 0
+    ```
+
+4.  **Evaluate**:
+    ```bash
+    cd ../..
+    # Use the deployment config we created
+    bash eval_policy.sh insert_HDMI demo ACT/deploy_policy_insert_HDMI 0
+    ```
+
+
 For parallel evaluation over many seeds:
 
 ```bash

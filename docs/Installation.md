@@ -13,7 +13,7 @@
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/byml-c/UniVTAC.git
+git clone https://github.com/khuzema-h/UniVTAC.git
 cd UniVTAC
 ```
 
@@ -28,7 +28,7 @@ conda activate UniVTAC
 
 > **Important:** Do **not** install TacEx from the public repository. UniVTAC requires a modified version of TacEx that is bundled in `third_party/TacEx`. Some internal APIs have been adapted for UniVTAC's tactile sensor pipeline.
 
-``` bash
+```bash
 cd third_party/TacEx
 ```
 
@@ -44,7 +44,7 @@ If you have a working Isaac Lab environment, you can directly install TacEx. Oth
 
 ```bash
 # install cuda-enabled pytorch
-pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu118
+pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124
 pip install --upgrade pip
 # install isaac sim packages
 pip install 'isaacsim[all,extscache]==4.5.0' --extra-index-url https://pypi.nvidia.com
@@ -79,11 +79,13 @@ python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Ant-v0 --head
 #### Installing TacEx [Core]
 
 **1.** Activate the Isaac Env
+
 ```bash
 conda activate UniVTAC
 ```
 
 **2.** Install the core packages of TacEx
+
 ```bash
 # Script will pip install core TacEx packages with --editable flag)
 ./tacex.sh -i
@@ -98,15 +100,19 @@ python ./scripts/demos/tactile_sim_approaches/check_taxim_sim.py --debug_vis
 ```
 
 And here is an RL example:
+
 ```bash
 python ./scripts/reinforcement_learning/skrl/train.py --task TacEx-Ball-Rolling-Tactile-RGB-v0 --num_envs 512 --enable_cameras
 ```
+
 > You can view the sensor output in the IsaacLab Tab: `Scene Debug Visualization > Observations > sensor_output`
 
 #### Installing TacEx [UIPC]
+
 The `tacex_uipc` package is responsible for the [UIPC](https://spirimirror.github.io/libuipc-doc/) simulation in TacEx.
 
 **1.** Install the [libuipc dependencies](https://spirimirror.github.io/libuipc-doc/build_install/linux/):
+
 * If not installed yet, install Vcpkg
 
 ```bash
@@ -131,14 +137,17 @@ export CMAKE_TOOLCHAIN_FILE="$HOME/Toolchain/vcpkg/scripts/buildsystems/vcpkg.cm
 conda activate UniVTAC
 conda env update -n UniVTAC --file ./source/tacex_uipc/libuipc/conda/env.yaml
 ```
+
 > If Cuda 12.4 does not work for, try updating your Nvidia drivers or try to use an older Cuda version by adjusting the env.yaml file (e.g. Cuda 12.2).
 
 **2.** Install `tacex_uipc`
+
 ```bash
 # This also builds `libuipc` and pip installs the python bindings.
 conda activate UniVTAC
 pip install -e source/tacex_uipc -v
 ```
+
 > You can also install all TacEx packages with `./tacex.sh -i all`.
 
 **3.** Verify that the `tacex_uipc` works by running an example:

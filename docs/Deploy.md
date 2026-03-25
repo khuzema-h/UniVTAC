@@ -61,3 +61,33 @@ or
 bash parallel_eval.sh ${task_name} ${task_config} ${policy_config} ${gpu_id} [num_processes] [total_num]
 # Example: bash parallel_eval.sh lift_bottle demo YourPolicy/deploy 3 0,1,2
 ```
+
+## Task Instruction Files
+Evaluation scripts require a task-specific instruction file at `instructions/${task_name}.json`. This file must contain `seen` and `unseen` categories for measuring generalization:
+
+```json
+{
+    "seen": [
+        "Primary instruction seen during training",
+        "Alternative wording for the same task"
+    ],
+    "unseen": [
+        "Novel instruction for testing zero-shot generalization"
+    ]
+}
+```
+
+## ACT Policy Deployment
+For the ACT policy, ensure your `deploy_policy_*.yml` includes the following fields:
+
+```yaml
+task_name: insert_HDMI
+policy_name: ACT
+ckpt_dir: /path/to/your/act_ckpt/act-task/demo-100/train_config/
+chunk_size: 50
+state_dim: 8
+temporal_agg: True
+camera_names: [head, wrist]
+tactile_names: [left_tactile, right_tactile]
+```
+Note: Ensure `ckpt_dir` points to a directory containing both `policy_last.ckpt` and `dataset_stats.pkl`. Without the stats file, the policy will fail to denormalize actions correctly.
