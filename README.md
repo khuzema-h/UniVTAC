@@ -76,6 +76,44 @@ If you want to train and evaluate the ACT policy on a task like `insert_HDMI`:
     bash eval_policy.sh insert_HDMI demo ACT/deploy_policy_insert_HDMI 0
     ```
 
+### Vision-only (head + wrist cameras, no tactile)
+If you want to train/evaluate a policy using **only RGB cameras** (head + wrist) and **no tactile**:
+
+1. **Prepare processed ACT data that includes both cameras**:
+   - Your processed ACT dataset must contain `cam_high` **and** `cam_wrist`.
+   - `process_data.py` uses `policy/task_settings.json` to decide whether to export only head (`camera_type: head`) or both head+wrist (`camera_type: all`) for a task.
+
+2. **Train ACT vision-only** using the provided config:
+
+```bash
+cd policy/ACT
+# train_config_vision_all.yml uses camera_names: [cam_high, cam_wrist] and tactile_names: []
+bash train.sh insert_HDMI demo 100 0 0 train_config_vision_all
+```
+
+3. **Evaluate vision-only** (no tactile observations, force both cameras):
+
+```bash
+cd ../..
+bash eval_policy.sh insert_HDMI demo ACT/deploy_policy_insert_HDMI 0 --vision_only --camera_type all
+```
+
+### Passing additional arguments to scripts
+- **ACT training** (`policy/ACT/train.sh`) forwards any extra args after the 6th positional argument to `imitate_episodes.py`.
+  - Example:
+
+```bash
+cd policy/ACT
+bash train.sh insert_HDMI demo 100 0 0 train_config_vision_all --wandb_mode offline
+```
+
+- **Evaluation** (`eval_policy.sh`) forwards extra args after the GPU id to `scripts/eval_policy.py`.
+  - Example:
+
+```bash
+bash eval_policy.sh insert_HDMI demo ACT/deploy_policy_insert_HDMI 0 --total_num 20 --record
+```
+
 
 For parallel evaluation over many seeds:
 

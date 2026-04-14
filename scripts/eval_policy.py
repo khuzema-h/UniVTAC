@@ -62,6 +62,18 @@ parser.add_argument(
     action='store_true',
     help="Whether to record the evaluation runs in hdf5"
 )
+parser.add_argument(
+    "--vision_only",
+    action="store_true",
+    help="Force policy + env to run without tactile (head+wrist RGB only)."
+)
+parser.add_argument(
+    "--camera_type",
+    type=str,
+    default=None,
+    choices=["head", "wrist", "all"],
+    help="Override policy camera selection (head, wrist, all=head+wrist)."
+)
 AppLauncher.add_app_launcher_args(parser)
 
 # parse the arguments
@@ -245,6 +257,20 @@ def main():
     env_cfg.scene.num_envs = 1
     env_cfg.sim.device = args_cli.device if args_cli.device is not None \
         else env_cfg.sim.device
+    # Optionally override observation modalities for vision-only evaluation.
+    if args_cli.vision_only:
+        # Keep only camera + embodiment by default.
+        obs = dict(env_cfg.obs_data_type) if isinstance(env_cfg.obs_data_type, dict) else {}
+        obs.pop("tactile", None)
+        env_cfg.obs_data_type = obs
+
+        # Also tell the policy deployment to skip tactile encoding.
+        deploy_config["use_tactile"] = False
+
+    # Optionally override camera selection for the policy deployment.
+    if args_cli.camera_type is not None:
+        deploy_config["camera_type"] = args_cli.camera_type
+
     seed = deploy_config.get("seed", 0)
 
     init_start = time.perf_counter()

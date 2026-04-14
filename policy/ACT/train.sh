@@ -5,6 +5,7 @@ expert_data_num=${3}
 seed=${4}
 gpu_id=${5}
 train_config=${6:-"train_config"}
+extra_args=("${@:7}")
 
 DEBUG=False
 save_ckpt=True
@@ -15,4 +16,5 @@ python3 imitate_episodes.py \
     --task_name sim-${task_name}-${task_config}-${expert_data_num} \
     --ckpt_dir ./act_ckpt/act-${task_name}/${task_config}-${expert_data_num}/${train_config} \
     --config_path ./${train_config}.yml \
-    --seed ${seed}
+    --seed ${seed} \
+    "${extra_args[@]}"

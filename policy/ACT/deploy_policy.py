@@ -33,8 +33,10 @@ class Policy(BasePolicy):
         with open(Path(__file__).parent.parent / 'task_settings.json', 'r') as f:
             task_settings = json.load(f)
         assert self.task_name in task_settings, f"Task '{self.task_name}' not found in task_settings.json"
-        self.camera_type = task_settings[self.task_name].get('camera_type', 'head')
+        self.camera_type = args.get("camera_type") or task_settings[self.task_name].get('camera_type', 'head')
+        self.use_tactile = bool(args.get("use_tactile", True))
         print(f"Using camera type '{self.camera_type}' for task '{self.task_name}'")
+        print(f"Using tactile: {self.use_tactile}")
 
         with open(Path(__file__).parent / f'{self.train_config_name}.yml', 'r') as f:
             train_config = yaml.load(f, Loader=yaml.FullLoader)
@@ -89,21 +91,22 @@ class Policy(BasePolicy):
             cam_wrist = camera_transform(observation["observation"]["wrist"]["rgb"])
         else:
             cam_high = camera_transform(observation["observation"][self.camera_type]["rgb"])
-
-        left_tac = tactile_transform(observation["tactile"]["left_tactile"]["rgb_marker"])
-        right_tac = tactile_transform(observation["tactile"]["right_tactile"]["rgb_marker"])
         
         # Extract joint positions (8D: 7 arm + 1 gripper)
         qpos = observation["embodiment"]["joint"][:8]
 
         ret = {
             "cam_high": cam_high,
-            "tac_left": left_tac,
-            "tac_right": right_tac,
             "qpos": qpos.cpu().numpy()
         }
         if self.camera_type == 'all':
             ret["cam_wrist"] = cam_wrist
+        if self.use_tactile:
+            # Some tasks/sensors may use different keys; keep existing default.
+            left_tac = tactile_transform(observation["tactile"]["left_tactile"]["rgb_marker"])
+            right_tac = tactile_transform(observation["tactile"]["right_tactile"]["rgb_marker"])
+            ret["tac_left"] = left_tac
+            ret["tac_right"] = right_tac
         return ret
 
     def eval(self, task, observation):
