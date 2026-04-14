@@ -228,6 +228,8 @@ class BaseTask(UipcRLEnv):
         self.last_step = time.perf_counter()
         self.mean_steps = 0
         self.take_action_cnt = 0
+        self.record_enabled = False
+        self.fail_reason = ''
         self.plan_success = True
         self.eval_success = False
         self.in_pre_move = False
@@ -460,6 +462,7 @@ class BaseTask(UipcRLEnv):
         self.last_qpos = None
         self.keep_still_times = 0
         self.metadata = {}
+        self.fail_reason = ''
         self.log = ''
 
     def pause(self):
@@ -547,12 +550,12 @@ class BaseTask(UipcRLEnv):
         for _ in range(self.cfg.decimation):
             self.sim.step(render=False)
 
-        if render_freq or (self.mode == 'collect' and is_save and save_freq) or (is_save and video_freq) \
+        if render_freq or ((self.mode == 'collect' or self.record_enabled) and is_save and save_freq) or (is_save and video_freq) \
             or (self.mode == 'eval' and not self.in_pre_move):
             self._update_render()
 
         obs = None
-        if self.mode == 'collect' and is_save and save_freq:
+        if (self.mode == 'collect' or self.record_enabled) and is_save and save_freq:
             obs = self._get_observations()
             self.save_observations(obs)
 
@@ -642,11 +645,26 @@ class BaseTask(UipcRLEnv):
             self.metadata['cost_step'] = self.step_count
             self.metadata['cost_time'] = time.perf_counter() - self.start_time
             self.metadata['result'] = result
+            if self.fail_reason:
+                self.metadata['fail_reason'] = self.fail_reason
             self._save_metadata()
+        
+        self.fail_reason = ""
  
     def save_to_hdf5(self):
         self.save_path.parent.mkdir(parents=True, exist_ok=True)
-        HDF5Handler().pkls_to_hdf5(self.tmp_save_dir, self.save_path)
+        handler = HDF5Handler()
+        data = handler.gather(self.tmp_save_dir)
+
+        # add metadata to hdf5
+        data['metadata'] = {}
+        for k, v in self.metadata.items():
+            if not isinstance(v, (list, np.ndarray)):
+                v = [v]
+            data['metadata'][k] = v
+        
+        with h5py.File(self.save_path, "w") as f:
+            handler.dict_to_hdf5(f, data)
     
     def _save_metadata(self):
         if self.metadata_path.exists():

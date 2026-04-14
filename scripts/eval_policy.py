@@ -57,6 +57,11 @@ parser.add_argument(
     "--print_only",
     action='store_true',
 )
+parser.add_argument(
+    "--record",
+    action='store_true',
+    help="Whether to record the evaluation runs in hdf5"
+)
 AppLauncher.add_app_launcher_args(parser)
 
 # parse the arguments
@@ -88,7 +93,7 @@ def log(msg):
 
 def eval_policy(
     task: 'BaseTask', policy: 'BasePolicy', expert_check,
-    start_seed, max_seed, test_total_num, instructions, instruciton_type:Literal['seen', 'unseen']='seen'
+    start_seed, max_seed, test_total_num, instructions, record_enabled=False, instruciton_type:Literal['seen', 'unseen']='seen'
 ):
     test_num, succ_num, seed = 0, 0, start_seed
 
@@ -134,6 +139,7 @@ def eval_policy(
         succ = False
         eval_start = time.perf_counter()
         task.mode = 'eval'
+        task.record_enabled = record_enabled
         try:
             task.reset(seed=seed, instructions=instructions[instruciton_type])
             task.mean_steps = task.cfg.step_lim
@@ -145,10 +151,15 @@ def eval_policy(
                     succ = True
                     break
                 if task.check_early_stop():
+                    task.fail_reason = 'early_stop'
                     break
+            else:
+                if not succ:
+                    task.fail_reason = 'timeout'
         except Exception as e:
             log(f"[{test_num:<3d}] Seed {seed} occurred exception: {e}\n{traceback.format_exc()}")
             succ_status = 'error'
+            task.fail_reason = str(e)
             task.clean_cache(result=succ_status)
             test_num -= 1
         else:
@@ -157,6 +168,13 @@ def eval_policy(
             if succ:
                 succ_num += 1
             succ_status = 'success' if succ else 'failed'
+            
+            if record_enabled:
+                task.metadata['result'] = succ_status
+                if task.fail_reason:
+                    task.metadata['fail_reason'] = task.fail_reason
+                task.save_to_hdf5()
+            
             task.clean_cache(result=succ_status)
             log(f"[{test_num:<3d}] Seed {seed} {succ_status} after {eval_cost:.2f} s.\n"
                 f"steps: {task.step_count:<5d}, actions: {task.take_action_cnt:<5d}.\n"
@@ -255,6 +273,7 @@ def main():
         max_seed=args_cli.max_seed,
         test_total_num=args_cli.total_num,
         instructions=instructions,
+        record_enabled=args_cli.record,
         instruciton_type=deploy_config.get("instruction_type", "seen")
     )
     log(f"Final Result: {results['succ_num']}/{results['test_num']}({results['succ_num']/results['test_num']*100:.2f}%) success.")
