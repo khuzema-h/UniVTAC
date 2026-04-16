@@ -223,8 +223,8 @@ class HDF5Handler:
                     encode_data, max_len = self.img_to_stream(v)
                     node.create_dataset(k, data=encode_data, dtype=f"S{max_len}")
                 elif len(v) > 0 and isinstance(v[0], str):
-                    max_len = np.max([len(s) for s in v])
-                    node.create_dataset(k, data=v, dtype=f'S{max_len}')
+                    v_arr = np.array(v).astype("S")
+                    node.create_dataset(k, data=v_arr)
                 else:
                     v = np.array(v)
                     node.create_dataset(k, data=v)
