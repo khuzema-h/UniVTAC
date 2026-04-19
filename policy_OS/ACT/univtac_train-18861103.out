@@ -1,0 +1,59 @@
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/osaha/.netrc.
+wandb: W&B API key is configured. Use `wandb login --relogin` to force relogin
+/home/osaha/.local/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/osaha/.local/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet18_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet18_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+[W&B] Failed to initialize W&B; continuing without it. Error: greenlet.greenlet size changed, may indicate binary incompatibility. Expected 144 from C header, got 40 from PyObject
+
+Data from: ./data/sim-insert_HDMI/clean-100
+
+build_ACT_model_and_optimizer Namespace(lr=1e-05, lr_backbone=1e-05, batch_size=64, weight_decay=0.0001, epochs=300, lr_drop=200, clip_max_norm=0.1, backbone='resnet18', dilation=False, position_embedding='sine', camera_names=['cam_high'], enc_layers=4, dec_layers=7, dim_feedforward=3200, hidden_dim=512, dropout=0.1, nheads=8, pre_norm=False, masks=False, eval=False, onscreen_render=False, ckpt_dir='./act_ckpt/act-insert_HDMI/clean-100/train_config', policy_class='ACT', task_name='sim-insert_HDMI-clean-100', seed=0, num_epochs=None, kl_weight=10.0, chunk_size=50, temporal_agg=True, state_dim=8, save_freq=1000, device='cuda:0', num_steps=4000, lr_vision_backbone=1e-05, tactile_names=['tac_left', 'tac_right'], lr_tactile_backbone=1e-05, tactile_masks=False, tactile_backbone='resnet18', tactile_ckpt='encoder/checkpoints/resnet18/20251128-125750/best.pth', tactile_dilation=False, config_path='./train_config.yml', wandb_project='UniVTAC', wandb_mode='online', wandb_log_ckpts=True)
+Namespace(lr=1e-05, lr_backbone=1e-05, batch_size=64, weight_decay=0.0001, epochs=300, lr_drop=200, clip_max_norm=0.1, backbone='resnet18', dilation=False, position_embedding='sine', camera_names=['cam_high'], enc_layers=4, dec_layers=7, dim_feedforward=3200, hidden_dim=512, dropout=0.1, nheads=8, pre_norm=False, masks=False, eval=False, onscreen_render=False, ckpt_dir='./act_ckpt/act-insert_HDMI/clean-100/train_config', policy_class='ACT', task_name='sim-insert_HDMI-clean-100', seed=0, num_epochs=None, kl_weight=10.0, chunk_size=50, temporal_agg=True, state_dim=8, save_freq=1000, device='cuda:0', num_steps=4000, lr_vision_backbone=1e-05, tactile_names=['tac_left', 'tac_right'], lr_tactile_backbone=1e-05, tactile_masks=False, tactile_backbone='resnet18', tactile_ckpt='encoder/checkpoints/resnet18/20251128-125750/best.pth', tactile_dilation=False, config_path='./train_config.yml', wandb_project='UniVTAC', wandb_mode='online', wandb_log_ckpts=True)
+number of parameters: 95.58M
+KL Weight 10.0
+  0%|          | 0/4000 [00:00<?, ?it/s]Traceback (most recent call last):
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/imitate_episodes.py", line 411, in <module>
+    main(config_args)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/imitate_episodes.py", line 159, in main
+    best_ckpt_info = train_bc(train_dataloader, val_dataloader, config)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/imitate_episodes.py", line 238, in train_bc
+    forward_dict = forward_pass(data, policy)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/imitate_episodes.py", line 209, in forward_pass
+    return policy(qpos_data, cam_data, tac_data, action_data, is_pad)  # TODO remove None
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/act_policy.py", line 39, in __call__
+    a_hat, is_pad_hat, (mu, logvar) = self.model(qpos, cam_image, tac_image, env_state, actions, is_pad)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/detr/models/detr_vae.py", line 147, in forward
+    hs = self.transformer(src, None, self.query_embed.weight, pos, latent_input, proprio_input,
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/detr/models/transformer.py", line 100, in forward
+    memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/detr/models/transformer.py", line 122, in forward
+    output = layer(output, src_mask=mask, src_key_padding_mask=src_key_padding_mask, pos=pos)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/detr/models/transformer.py", line 232, in forward
+    return self.forward_post(src, src_mask, src_key_padding_mask, pos)
+  File "/scratch/zt1/project/ssb-prj/user/osaha/848M/UniVTAC/policy/ACT/detr/models/transformer.py", line 206, in forward_post
+    src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/osaha/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py", line 134, in forward
+    return F.linear(input, self.weight, self.bias)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 54.00 MiB. GPU 0 has a total capacity of 4.75 GiB of which 45.00 MiB is free. Including non-PyTorch memory, this process has 4.67 GiB memory in use. Of the allocated memory 4.48 GiB is allocated by PyTorch, and 96.34 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+wandb: Network error (ConnectTimeout), entering retry loop.

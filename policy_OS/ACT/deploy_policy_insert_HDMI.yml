@@ -1,0 +1,19 @@
+# policy/ACT/deploy_policy_insert_HDMI.yml
+task_name: insert_HDMI
+policy_name: ACT
+train_config_name: train_config
+# This should match where your training script saved the data
+ckpt_dir: /home/khuzema/UniVTAC/policy/ACT/act_ckpt/act-insert_HDMI/demo-100/train_config/
+
+# Model settings (match your training config)
+chunk_size: 50
+state_dim: 8
+temporal_agg: True
+
+# Camera settings
+camera_names:
+  - head
+  - wrist
+tactile_names:
+  - left_tactile
+  - right_tactile
