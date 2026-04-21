@@ -8,11 +8,13 @@ from torch.nn import functional as F
 try:
     from detr.main import (
         build_ACT_model_and_optimizer,
+        build_SkillACT_model_and_optimizer,
         build_CNNMLP_model_and_optimizer,
     )
 except:
     from .detr.main import (
         build_ACT_model_and_optimizer,
+        build_SkillACT_model_and_optimizer,
         build_CNNMLP_model_and_optimizer,
     )
 import IPython
@@ -47,6 +49,46 @@ class ACTPolicy(nn.Module):
             return loss_dict
         else:  # inference time
             a_hat, _, (_, _) = self.model(qpos, cam_image, tac_image, env_state)  # no action, sample from prior
+            return a_hat
+
+    def configure_optimizers(self):
+        return self.optimizer
+
+
+class SkillACTPolicy(nn.Module):
+
+    def __init__(self, args_override, RoboTwin_Config=None):
+        super().__init__()
+        model, optimizer = build_SkillACT_model_and_optimizer(args_override, RoboTwin_Config)
+        self.model = model
+        self.optimizer = optimizer
+        self.kl_weight = args_override["kl_weight"]
+        self.skill_loss_weight = args_override.get("skill_loss_weight", 1.0)
+        print(f"KL Weight {self.kl_weight}")
+        print(f"Skill Loss Weight {self.skill_loss_weight}")
+
+    def __call__(self, qpos, cam_image, tac_image, actions=None, is_pad=None, skill_labels=None):
+        env_state = None
+        if actions is not None:
+            if skill_labels is None:
+                raise ValueError("SkillACT training requires skill labels from the dataset.")
+            actions = actions[:, :self.model.num_queries]
+            is_pad = is_pad[:, :self.model.num_queries]
+            a_hat, is_pad_hat, (mu, logvar), skill_logits = self.model(qpos, cam_image, tac_image, env_state, actions, is_pad)
+            total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
+            loss_dict = dict()
+            all_l1 = F.l1_loss(actions, a_hat, reduction="none")
+            l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
+            skill_labels = skill_labels.long().view(-1)
+            skill_ce = F.cross_entropy(skill_logits, skill_labels)
+            loss_dict["l1"] = l1
+            loss_dict["kl"] = total_kld[0]
+            loss_dict["skill"] = skill_ce
+            loss_dict["loss"] = loss_dict["l1"] + loss_dict["kl"] * self.kl_weight + loss_dict["skill"] * self.skill_loss_weight
+            return loss_dict
+        else:
+            a_hat, _, (_, _), skill_logits = self.model(qpos, cam_image, tac_image, env_state)
+            self.last_skill_logits = skill_logits
             return a_hat
 
     def configure_optimizers(self):
@@ -233,3 +275,58 @@ class ACT:
                 self.max_timesteps + self.num_queries,
                 self.state_dim,
             ]).to(self.device)
+
+class SkillACT(ACT):
+
+    def __init__(self, args_override=None, RoboTwin_Config=None):
+        if args_override is None:
+            args_override = {
+                "kl_weight": 0.1,
+                "skill_loss_weight": 1.0,
+                "device": "cuda:0",
+            }
+        self.policy = SkillACTPolicy(args_override, RoboTwin_Config)
+        self.device = torch.device(args_override["device"])
+        self.policy.to(self.device)
+        self.policy.eval()
+
+        self.temporal_agg = args_override.get("temporal_agg", False)
+        self.num_queries = args_override["chunk_size"]
+        self.state_dim = args_override.get("state_dim", 14)
+        self.max_timesteps = 3000
+        self.camera_names = args_override.get("camera_names", ["cam_high"])
+        self.tactile_names = args_override.get("tactile_names", ["tac_left", "tac_right"])
+
+        self.query_frequency = self.num_queries
+        if self.temporal_agg:
+            self.query_frequency = 1
+            self.all_time_actions = torch.zeros([
+                self.max_timesteps,
+                self.max_timesteps + self.num_queries,
+                self.state_dim,
+            ]).to(self.device)
+            print(f"Temporal aggregation enabled with {self.num_queries} queries")
+
+        self.t = 0
+
+        ckpt_dir = args_override.get("ckpt_dir", "")
+        if ckpt_dir:
+            stats_path = os.path.join(ckpt_dir, "dataset_stats.pkl")
+            if os.path.exists(stats_path):
+                with open(stats_path, "rb") as f:
+                    self.stats = pickle.load(f)
+                print(f"Loaded normalization stats from {stats_path}")
+            else:
+                print(f"Warning: Could not find stats file at {stats_path}")
+                self.stats = None
+
+            ckpt_path = os.path.join(ckpt_dir, "policy_last.ckpt")
+            print("current pwd:", os.getcwd())
+            if os.path.exists(ckpt_path):
+                loading_status = self.policy.load_state_dict(torch.load(ckpt_path))
+                print(f"Loaded policy weights from {ckpt_path}")
+                print(f"Loading status: {loading_status}")
+            else:
+                print(f"Warning: Could not find policy checkpoint at {ckpt_path}")
+        else:
+            self.stats = None

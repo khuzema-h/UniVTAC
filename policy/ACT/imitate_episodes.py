@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from utils import load_data  # data functions
 from utils import compute_dict_mean, set_seed, detach_dict  # helper functions
-from act_policy import ACTPolicy, CNNMLPPolicy
+from act_policy import ACTPolicy, SkillACTPolicy, CNNMLPPolicy
 
 import IPython
 e = IPython.embed
@@ -103,7 +103,7 @@ def main(args):
             "num_queries": 1,
             "camera_names": camera_names,
         }
-    elif policy_class != "ACT":
+    elif policy_class not in {"ACT", "SkillACT"}:
         raise NotImplementedError
 
     state_dim = args["state_dim"]
@@ -180,6 +180,8 @@ def main(args):
 def make_policy(policy_class, policy_config):
     if policy_class == "ACT":
         policy = ACTPolicy(policy_config)
+    elif policy_class == "SkillACT":
+        policy = SkillACTPolicy(policy_config)
     elif policy_class == "CNNMLP":
         policy = CNNMLPPolicy(policy_config)
     else:
@@ -188,7 +190,7 @@ def make_policy(policy_class, policy_config):
 
 
 def make_optimizer(policy_class, policy):
-    if policy_class == "ACT":
+    if policy_class in {"ACT", "SkillACT"}:
         optimizer = policy.configure_optimizers()
     elif policy_class == "CNNMLP":
         optimizer = policy.configure_optimizers()
@@ -198,6 +200,20 @@ def make_optimizer(policy_class, policy):
 
 
 def forward_pass(data, policy):
+    if len(data) == 6:
+        cam_data, tac_data, qpos_data, action_data, is_pad, skill_label = data
+        cam_data, tac_data, qpos_data, action_data, is_pad, skill_label = (
+            cam_data.cuda(),
+            tac_data.cuda(),
+            qpos_data.cuda(),
+            action_data.cuda(),
+            is_pad.cuda(),
+            skill_label.cuda(),
+        )
+        if isinstance(policy, SkillACTPolicy):
+            return policy(qpos_data, cam_data, tac_data, action_data, is_pad, skill_label)
+        return policy(qpos_data, cam_data, tac_data, action_data, is_pad)
+
     cam_data, tac_data, qpos_data, action_data, is_pad = data
     cam_data, tac_data, qpos_data, action_data, is_pad = (
         cam_data.cuda(),

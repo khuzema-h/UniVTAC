@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from .models import build_ACT_model, build_CNNMLP_model
+from .models import build_ACT_model, build_SkillACT_model, build_CNNMLP_model
 
 import IPython
 
@@ -115,20 +115,19 @@ def get_args_parser():
     parser.add_argument("--temporal_agg", action="store_true")
     parser.add_argument("--state_dim", action="store", type=int, help="state dim", required=False)
     parser.add_argument("--save_freq", action="store", type=int, help="save ckpt frequency", required=False, default=6000)
+    parser.add_argument("--num_skills", action="store", type=int, help="number of discrete skills", required=False)
+    parser.add_argument("--skill_loss_weight", action="store", type=float, help="skill loss weight", required=False)
     # parser.add_argument('--num_queries',type=int, required=True)
     # parser.add_argument('--actionsByQuery',type=int, required=True)
 
     return parser
 
 
-def build_ACT_model_and_optimizer(args_override, RoboTwin_Config=None):
+def _build_namespace(args_override, RoboTwin_Config=None):
     if RoboTwin_Config is None:
-        # TacArena: Check if we're in deployment mode (has all required keys in args_override)
         required_keys = ['ckpt_dir', 'policy_class', 'task_name', 'seed', 'num_epochs', 'state_dim']
         if all(k in args_override for k in required_keys):
-            # Deployment mode: create Namespace directly from args_override, no argparse
             from argparse import Namespace
-            # Set default values
             default_args = {
                 'lr': 1e-4,
                 'lr_backbone': 1e-5,
@@ -143,24 +142,19 @@ def build_ACT_model_and_optimizer(args_override, RoboTwin_Config=None):
                 'eval': False,
                 'onscreen_render': False,
             }
-            # Merge defaults with args_override
             default_args.update(args_override)
             args = Namespace(**default_args)
         else:
-            # Training mode: parse command line args
             parser = argparse.ArgumentParser("DETR training and evaluation script", parents=[get_args_parser()])
             args, _ = parser.parse_known_args()
             for k, v in args_override.items():
                 setattr(args, k, v)
     else:
         args = RoboTwin_Config
+    return args
 
-    print("build_ACT_model_and_optimizer", args)
 
-    print(args)
-    model = build_ACT_model(args)
-    model.cuda()
-
+def _build_optimizer(model, args):
     param_dicts = [
         {
             "params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]
@@ -174,8 +168,26 @@ def build_ACT_model_and_optimizer(args_override, RoboTwin_Config=None):
             "lr": args.lr_tactile_backbone,
         },
     ]
-    optimizer = torch.optim.AdamW(param_dicts, lr=args.lr, weight_decay=args.weight_decay)
+    return torch.optim.AdamW(param_dicts, lr=args.lr, weight_decay=args.weight_decay)
 
+
+def build_ACT_model_and_optimizer(args_override, RoboTwin_Config=None):
+    args = _build_namespace(args_override, RoboTwin_Config)
+    print("build_ACT_model_and_optimizer", args)
+    print(args)
+    model = build_ACT_model(args)
+    model.cuda()
+    optimizer = _build_optimizer(model, args)
+    return model, optimizer
+
+
+def build_SkillACT_model_and_optimizer(args_override, RoboTwin_Config=None):
+    args = _build_namespace(args_override, RoboTwin_Config)
+    print("build_SkillACT_model_and_optimizer", args)
+    print(args)
+    model = build_SkillACT_model(args)
+    model.cuda()
+    optimizer = _build_optimizer(model, args)
     return model, optimizer
 
 

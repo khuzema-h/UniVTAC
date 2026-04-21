@@ -94,6 +94,10 @@ class EpisodicDataset(torch.utils.data.Dataset):
         action_data = (action_data - self.norm_stats["action_mean"]) / self.norm_stats["action_std"]
         qpos_data = (qpos_data - self.norm_stats["qpos_mean"]) / self.norm_stats["qpos_std"]
 
+        if self.skill_path is not None:
+            skill_label = torch.as_tensor(root[self.skill_path][start_ts], dtype=torch.long)
+            return all_cam_images, all_tac_images, qpos_data, action_data, is_pad, skill_label
+
         return all_cam_images, all_tac_images, qpos_data, action_data, is_pad
 
 
@@ -148,6 +152,14 @@ def worker_clear_fn():
             f.close()
         del _worker_hdf5_cache[ident]
 
+def _resolve_skill_path(root):
+    if 'skill' in root:
+        return 'skill'
+    if 'observations' in root and 'skill' in root['observations']:
+        return 'observations/skill'
+    return None
+
+
 class TacArenaDataset(torch.utils.data.Dataset):
     tac_image_trans = transforms.Compose([
         transforms.ToTensor(),
@@ -167,6 +179,7 @@ class TacArenaDataset(torch.utils.data.Dataset):
         self.tactile_names = tactile_names
         self.chunk_size = chunk_size
         self.norm_stats = norm_stats
+        self.skill_path = None
         self.create_dataset()
         
     def create_dataset(self):
@@ -179,6 +192,8 @@ class TacArenaDataset(torch.utils.data.Dataset):
             dataset_path = str(Path(self.dataset_dir) / f"episode_{episode_idx}.hdf5")
             with h5py.File(dataset_path, "r") as root:
                 qpos = root["/observations/qpos"][()]
+                if self.skill_path is None:
+                    self.skill_path = _resolve_skill_path(root)
             episode_len = qpos.shape[0]
             
             for start_idx in range(episode_len):
@@ -240,6 +255,10 @@ class TacArenaDataset(torch.utils.data.Dataset):
         # normalize image and change dtype to float
         action_data = (action_data - self.norm_stats["action_mean"]) / self.norm_stats["action_std"]
         qpos_data = (qpos_data - self.norm_stats["qpos_mean"]) / self.norm_stats["qpos_std"]
+
+        if self.skill_path is not None:
+            skill_label = torch.as_tensor(root[self.skill_path][start_ts], dtype=torch.long)
+            return all_cam_images, all_tac_images, qpos_data, action_data, is_pad, skill_label
 
         return all_cam_images, all_tac_images, qpos_data, action_data, is_pad
 
