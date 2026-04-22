@@ -76,6 +76,37 @@ If you want to train and evaluate the ACT policy on a task like `insert_HDMI`:
     bash eval_policy.sh insert_HDMI demo ACT/deploy_policy_insert_HDMI 0
     ```
 
+### Quick Start: Training & Evaluating SkillACT
+If you want to train and evaluate the skill-augmented ACT policy on `insert_HDMI` using annotated phase labels:
+
+1. **Prepare annotated data**:
+   - Place the annotated raw HDF5 files under `data_annotated/expert_demos/`.
+   - The current preprocessing expects per-timestep skill annotations at `annotation/phase`.
+
+2. **Process annotated data**:
+   ```bash
+   cd policy/ACT
+   python process_data.py insert_HDMI annotated 100
+   ```
+
+3. **Train SkillACT**:
+   ```bash
+   # Usage: bash train.sh <task> <config> <num_episodes> <seed> <gpu_id> <train_config>
+   bash train.sh insert_HDMI annotated 100 0 0 skill_train_config
+   ```
+
+4. **Evaluate SkillACT**:
+   ```bash
+   cd ../..
+   bash eval_policy.sh insert_HDMI demo ACT/deploy_policy_insert_HDMI 0 --policy_variant SkillACT
+   ```
+
+The default `insert_HDMI` deploy config is already set up to use:
+- `policy/ACT/act_ckpt/act-insert_HDMI/annotated-100/skill_train_config`
+- `policy_best.ckpt`
+
+If you want to evaluate regular ACT instead, omit `--policy_variant SkillACT`.
+
 ### Vision-only (head + wrist cameras, no tactile)
 If you want to train/evaluate a policy using **only RGB cameras** (head + wrist) and **no tactile**:
 

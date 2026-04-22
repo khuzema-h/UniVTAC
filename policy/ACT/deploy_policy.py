@@ -10,7 +10,7 @@ import cv2
 import yaml
 import numpy as np
 import torch
-from .act_policy import ACT
+from .act_policy import ACT, SkillACT
 # from act_policy import ACT
 from torchvision import transforms
 
@@ -18,13 +18,28 @@ class Policy(BasePolicy):
 # class Policy:
     def __init__(self, args):
         """Initialize ACT policy for TacArena deployment"""
-        # Construct checkpoint directory path
-        self.train_config_name = args.get('train_config_name', os.environ.get('TRAIN_CONFIG', 'train_config'))
+        self.policy_variant = args.get("policy_variant", "ACT")
+        if self.policy_variant not in {"ACT", "SkillACT"}:
+            raise ValueError(f"Unsupported ACT policy variant: {self.policy_variant}")
+
         self.ep_num = args.get('ep_num', os.environ.get('EP_NUM', '100'))
+
+        train_config_names = args.get("train_config_names", {})
+        self.train_config_name = args.get(
+            'train_config_name',
+            train_config_names.get(self.policy_variant, os.environ.get('TRAIN_CONFIG', 'train_config')),
+        )
+        ckpt_names = args.get("ckpt_names", {})
+        self.ckpt_name = args.get("ckpt_name", ckpt_names.get(self.policy_variant, "policy_last.ckpt"))
         
         # Prioritize ckpt_dir from args (from YAML) if provided
-        if 'ckpt_dir' in args:
-            ckpt_dir = Path(args['ckpt_dir'])
+        ckpt_dirs = args.get("ckpt_dirs", {})
+        selected_ckpt_dir = args.get('ckpt_dir')
+        if selected_ckpt_dir is None and self.policy_variant in ckpt_dirs:
+            selected_ckpt_dir = ckpt_dirs[self.policy_variant]
+
+        if selected_ckpt_dir is not None:
+            ckpt_dir = Path(selected_ckpt_dir)
         else:
             ckpt_dir = Path(__file__).parent / "act_ckpt" / f"act-{args['task_name']}" / f"{args['task_config']}-{self.ep_num}" / self.train_config_name
 
@@ -45,13 +60,15 @@ class Policy(BasePolicy):
             'task_name': f"sim-{args['task_name']}-{args['task_config']}-{self.ep_num}",
             'task_config': args['task_config'],
             'ckpt_dir': str(ckpt_dir),
+            'ckpt_name': self.ckpt_name,
             "seed": args.get('seed', 0),
             "num_epochs": 1
         })
         
         # Initialize ACT model (RoboTwin_Config=None for TacArena)
-        self.model = ACT(train_config)
-        print(f"ACT policy loaded from {ckpt_dir}")
+        model_cls = SkillACT if self.policy_variant == "SkillACT" else ACT
+        self.model = model_cls(train_config)
+        print(f"{self.policy_variant} policy loaded from {ckpt_dir / self.ckpt_name}")
 
     def encode_obs(self, observation):
         """
@@ -149,4 +166,3 @@ class Policy(BasePolicy):
         for name, tensor in frames.items():
             img = Image.fromarray(tensor.cpu().numpy().astype('uint8'))
             img.save(save_dir / f"step_{t:04d}_{name}.png")
-

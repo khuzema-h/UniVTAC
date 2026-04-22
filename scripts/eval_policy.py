@@ -74,6 +74,13 @@ parser.add_argument(
     choices=["head", "wrist", "all"],
     help="Override policy camera selection (head, wrist, all=head+wrist)."
 )
+parser.add_argument(
+    "--policy_variant",
+    type=str,
+    default=None,
+    choices=["ACT", "SkillACT"],
+    help="Override the ACT deployment variant without changing the deploy YAML.",
+)
 AppLauncher.add_app_launcher_args(parser)
 
 # parse the arguments
@@ -270,6 +277,8 @@ def main():
     # Optionally override camera selection for the policy deployment.
     if args_cli.camera_type is not None:
         deploy_config["camera_type"] = args_cli.camera_type
+    if args_cli.policy_variant is not None:
+        deploy_config["policy_variant"] = args_cli.policy_variant
 
     seed = deploy_config.get("seed", 0)
 

@@ -1,9 +1,16 @@
 # policy/ACT/deploy_policy_insert_HDMI.yml
 task_name: insert_HDMI
 policy_name: ACT
-train_config_name: train_config
-# This should match where your training script saved the data
-ckpt_dir: /home/khuzema/UniVTAC/policy/ACT/act_ckpt/act-insert_HDMI/demo-100/train_config/
+policy_variant: ACT
+train_config_names:
+  ACT: train_config
+  SkillACT: skill_train_config
+ckpt_names:
+  ACT: policy_last.ckpt
+  SkillACT: policy_best.ckpt
+ckpt_dirs:
+  ACT: policy/ACT/act_ckpt/act-insert_HDMI/demo-100/train_config
+  SkillACT: policy/ACT/act_ckpt/act-insert_HDMI/annotated-100/skill_train_config
 
 # Model settings (match your training config)
 chunk_size: 50
